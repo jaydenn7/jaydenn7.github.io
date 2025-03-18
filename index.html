@@ -1,1 +1,335 @@
-hi!
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Marvel Snap Spotlight Calculator</title>
+  <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500&display=swap" rel="stylesheet">
+  <style>
+    /* Global Reset and Box Sizing */
+    * { box-sizing: border-box; }
+    /* Base Body Styles */
+    body {
+      font-family: 'Roboto', sans-serif;
+      background: #f4f7f8;
+      color: #333;
+      margin: 0;
+      padding: 0;
+      line-height: 1.6;
+    }
+    /* Main Container */
+    .container {
+      width: 90%;
+      max-width: 800px;
+      margin: 20px auto;
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #444;
+      font-size: 1.5rem;
+    }
+    /* Form Elements */
+    form label {
+      display: block;
+      margin: 15px 0 5px;
+      font-weight: 500;
+      font-size: 1rem;
+    }
+    input[type="number"] {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 1rem;
+      transition: border-color 0.3s;
+    }
+    input[type="number"]:focus {
+      outline: none;
+      border-color: #6c63ff;
+    }
+    /* Responsive Table Container */
+    .table-container {
+      overflow-x: auto;
+      margin-top: 10px;
+    }
+    /* Spotlight Events Table */
+    #spotlightTable {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 500px;
+    }
+    #spotlightTable th, #spotlightTable td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: center;
+      font-size: 0.9rem;
+    }
+    #spotlightTable th {
+      background: #6c63ff;
+      color: #fff;
+    }
+    /* Using icon styling */
+    .usingToggle {
+      cursor: pointer;
+      font-size: 1.5rem;
+      user-select: none;
+    }
+    /* Hide simulation details (Min/Max) by default */
+    .simulation {
+      display: none;
+    }
+    /* Button Styles */
+    button {
+      display: block;
+      width: 100%;
+      background: #6c63ff;
+      color: #fff;
+      border: none;
+      padding: 12px;
+      border-radius: 4px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.3s;
+      margin-top: 20px;
+    }
+    button:hover { background: #5952d4; }
+    /* Final Summary Style */
+    .final-summary {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 1.1rem;
+      font-weight: 500;
+    }
+    /* Error Message */
+    .error {
+      color: #e74c3c;
+      font-weight: 500;
+      margin-top: 20px;
+      text-align: center;
+    }
+    /* Media Query for small screens */
+    @media (max-width: 480px) {
+      h1 { font-size: 1.3rem; }
+      form label, input[type="number"] { font-size: 0.95rem; }
+      #spotlightTable th, #spotlightTable td { font-size: 0.8rem; padding: 6px; }
+      .usingToggle { font-size: 1.3rem; }
+      button { font-size: 0.9rem; padding: 10px; }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>Marvel Snap Spotlight Calculator</h1>
+  <form id="snapForm">
+    <label for="initialKeys">How many keys do you have now?</label>
+    <input type="number" id="initialKeys" name="initialKeys" required step="any" min="0">
+    
+    <label for="levelsUntilKey">How many levels until your next key? (out of 120)</label>
+    <input type="number" id="levelsUntilKey" name="levelsUntilKey" required min="0" max="120">
+    
+    <h3>Upcoming Spotlight Events</h3>
+    <div class="table-container" id="spotlightQuestions">
+      <!-- The events table will be inserted here -->
+    </div>
+    <button type="submit" id="calcBtn">Calculate</button>
+  </form>
+  <div id="results"></div>
+</div>
+
+<script>
+  // Constants for weekly key gains.
+  const AVERAGE_KEYS_PER_WEEK = 1.1;
+  const BEST_CASE_KEYS_PER_WEEK = 1.25;
+  
+  // Spotlight events with dates and associated cards.
+  const spotlights = {
+    "2025-03-04": ["Eson", "Wiccan", "Beta Ray Bill"],
+    "2025-03-11": ["Starbrand", "Phastos", "Skaar"],
+    "2025-03-18": ["Firehair", "Nico Minoru", "Cassandra Nova"],
+    "2025-03-25": ["Khonshu", "Scorn", "Corvus Glaive"],
+    "2025-04-01": ["Goliath", "Gwenpool", "Sersi"],
+    "2025-04-08": ["Kahhori", "Cull Obsidian", "Hydra Bob"],
+    "2025-04-15": ["Infinity Ultron", "Pixie", "Cannonball"],
+    "2025-04-22": ["Strange Supreme", "Speed", "USAgent"],
+    "2025-04-29": ["Hydra Stomper", "Araña", "Madame Web"],
+    "2025-05-06": ["Surge", "Hope Summers", "Emperor Hulkling"],
+    "2025-05-13": ["Prodigy", "Frigga", "Silver Sable"],
+    "2025-05-20": ["Elixir", "Arishem", "Malekith"],
+    "2025-05-27": ["Xorn", "Ajax", "Scream"]
+  };
+
+  // Helper function to format dates as "jS F" (e.g., "4th March").
+  function formatDate(dateObj) {
+    const day = dateObj.getDate();
+    const monthNames = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"
+    ];
+    const month = monthNames[dateObj.getMonth()];
+    let ordinal;
+    if (day > 3 && day < 21) {
+      ordinal = 'th';
+    } else {
+      switch (day % 10) {
+        case 1: ordinal = "st"; break;
+        case 2: ordinal = "nd"; break;
+        case 3: ordinal = "rd"; break;
+        default: ordinal = "th";
+      }
+    }
+    return day + ordinal + " " + month;
+  }
+
+  // Compute the next weekly reset (Tuesday at 19:00).
+  function getNextReset() {
+    const now = new Date();
+    let reset = new Date(now);
+    const targetDay = 2; // Tuesday
+    let daysUntilTarget = (targetDay - now.getDay() + 7) % 7;
+    reset.setDate(now.getDate() + daysUntilTarget);
+    reset.setHours(19, 0, 0, 0);
+    if (now > reset) {
+      reset.setDate(reset.getDate() + 7);
+    }
+    return reset;
+  }
+
+  // Populate the spotlight events as a table.
+  function populateSpotlights() {
+    const container = document.getElementById("spotlightQuestions");
+    container.innerHTML = "";
+    const now = new Date();
+    const dates = Object.keys(spotlights).sort();
+
+    const table = document.createElement("table");
+    table.id = "spotlightTable";
+    const thead = document.createElement("thead");
+    thead.innerHTML = "<tr><th>Date</th><th>Cards</th><th>Using?</th><th class='simulation'>Min</th><th class='simulation'>Max</th></tr>";
+    table.appendChild(thead);
+    const tbody = document.createElement("tbody");
+
+    dates.forEach(dateStr => {
+      const startOfWeek = new Date(dateStr + "T19:00:00");
+      const endOfWeek = new Date(startOfWeek.getTime() + 7 * 24 * 60 * 60 * 1000 - 1000);
+      // Only include upcoming events.
+      if (endOfWeek > now) {
+        const tr = document.createElement("tr");
+        // Date cell.
+        const tdDate = document.createElement("td");
+        tdDate.textContent = formatDate(startOfWeek);
+        tr.appendChild(tdDate);
+        // Cards cell.
+        const tdCards = document.createElement("td");
+        tdCards.textContent = spotlights[dateStr].join(", ");
+        tr.appendChild(tdCards);
+        // Using cell with clickable icon.
+        const tdUsing = document.createElement("td");
+        const usingSpan = document.createElement("span");
+        usingSpan.id = "using_" + dateStr;
+        usingSpan.className = "usingToggle";
+        usingSpan.textContent = "❌"; // Default state.
+        usingSpan.addEventListener("click", function() {
+          usingSpan.textContent = (usingSpan.textContent === "❌") ? "✅" : "❌";
+        });
+        tdUsing.appendChild(usingSpan);
+        tr.appendChild(tdUsing);
+        // Min cell.
+        const tdMin = document.createElement("td");
+        tdMin.className = "simulation";
+        tdMin.textContent = "";
+        tr.appendChild(tdMin);
+        // Max cell.
+        const tdMax = document.createElement("td");
+        tdMax.className = "simulation";
+        tdMax.textContent = "";
+        tr.appendChild(tdMax);
+        
+        // Save event's date string for simulation.
+        tr.dataset.dateStr = dateStr;
+        tbody.appendChild(tr);
+      }
+    });
+    table.appendChild(tbody);
+    container.appendChild(table);
+  }
+
+  // Run on page load.
+  populateSpotlights();
+
+  // Handle form submission and simulation.
+  document.getElementById("snapForm").addEventListener("submit", function(event) {
+    event.preventDefault();
+    const resultsDiv = document.getElementById("results");
+    resultsDiv.innerHTML = "";
+
+    let currentKeys = parseFloat(document.getElementById("initialKeys").value);
+    if (isNaN(currentKeys)) {
+      resultsDiv.innerHTML = "<p class='error'>Please enter a valid number of keys.</p>";
+      return;
+    }
+    let levelsUntilKey = parseFloat(document.getElementById("levelsUntilKey").value);
+    if (isNaN(levelsUntilKey) || levelsUntilKey < 0 || levelsUntilKey > 120) {
+      resultsDiv.innerHTML = "<p class='error'>Please enter a valid number of levels (0–120) until your next key.</p>";
+      return;
+    }
+
+    // Calculate effective starting keys.
+    const effectiveKeys = currentKeys + ((120 - levelsUntilKey) / 120);
+    let estimatedKeysMin = effectiveKeys;
+    let estimatedKeysBest = effectiveKeys;
+    
+    let simulatedKeysMin = estimatedKeysMin;
+    let simulatedKeysBest = estimatedKeysBest;
+    const now = new Date();
+    let lastWeek = "";  // To track weekly gains.
+
+    // Process each event row.
+    const tableRowsElements = document.querySelectorAll("#spotlightTable tbody tr");
+    
+    tableRowsElements.forEach(tr => {
+      const dateStr = tr.dataset.dateStr;
+      const startOfWeek = new Date(dateStr + "T19:00:00");
+      const endOfWeek = new Date(startOfWeek.getTime() + 7 * 24 * 60 * 60 * 1000 - 1000);
+      if (endOfWeek <= now) return;
+      
+      const weekId = startOfWeek.toDateString();
+      if (now < startOfWeek && weekId !== lastWeek) {
+        simulatedKeysMin += AVERAGE_KEYS_PER_WEEK;
+        simulatedKeysBest += BEST_CASE_KEYS_PER_WEEK;
+        lastWeek = weekId;
+      }
+      
+      const usingIcon = tr.querySelector(".usingToggle").textContent;
+      const using = (usingIcon === "✅");
+      if (using) {
+        simulatedKeysMin -= 4;
+        simulatedKeysBest -= 4;
+      }
+      
+      const simCells = tr.querySelectorAll(".simulation");
+      simCells[0].textContent = Math.floor(simulatedKeysMin);
+      simCells[1].textContent = Math.floor(simulatedKeysBest);
+      if (simulatedKeysMin < 0) {
+        simCells[0].style.color = "red";
+        simCells[1].style.color = "red";
+      } else {
+        simCells[0].style.color = "";
+        simCells[1].style.color = "";
+      }
+    });
+    
+    // Reveal simulation columns.
+    document.querySelectorAll(".simulation").forEach(el => {
+      el.style.display = "table-cell";
+    });
+    // Change Calculate button text to "Refresh".
+    document.getElementById("calcBtn").textContent = "Refresh";
+  });
+</script>
+</body>
+</html>
